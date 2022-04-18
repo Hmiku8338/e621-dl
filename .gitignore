@@ -1,0 +1,7 @@
+e621/
+__pycache__/
+.mypy_cache/
+*.txt
+*.egg-info
+dist/
+.vscode/
