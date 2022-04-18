@@ -5,16 +5,13 @@ import os.path
 import re
 import shutil
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Dict, Iterable, List, Optional
+
 import requests
-
-import typer
-
-from e621.models import Post
 import rich.progress
-
-
+import typer
 from e621.api import E621
+from e621.models import Post
 
 CURRENT_DIR = Path(__file__).parent
 USERNAME_FILE = CURRENT_DIR / "username.txt"
@@ -51,7 +48,7 @@ save_space_arg = typer.Option(False, "-s", "--save-space", help="Save space by t
 
 @posts_app.command("search")
 def get_posts(
-    tags: list[str] = typer.Argument(..., help="Tags to search for"),
+    tags: List[str] = typer.Argument(..., help="Tags to search for"),
     max_posts: int = typer.Option(
         10000,
         "-m",
@@ -69,7 +66,7 @@ def get_posts(
     directory = download_path / formatted_tags
     directory.mkdir(exist_ok=True, parents=True)
     if save_space:
-        post_managers: dict[int, PostManager] = {}
+        post_managers: Dict[int, PostManager] = {}
         find_all_posts(download_path, post_managers)
 
         optimized_posts = 0
@@ -112,16 +109,16 @@ def get_pool(pool_id: int, download_path: Path = dir_arg, save_space: bool = sav
 
 @app.command()
 def clean(
-    dirs: list[Path] = typer.Argument(..., help="Path to directories with objects"),
+    dirs: List[Path] = typer.Argument(..., help="Path to directories with objects"),
     download_broken_symlinks: bool = typer.Option(True, "-d", "--download-broken-symlinks"),
 ) -> None:
     """Replace all post duplicates in the given set of directories with symlinks"""
     if not dirs:
         dirs = [Path.cwd()]
-    post_managers: dict[int, PostManager] = {}
+    post_managers: Dict[int, PostManager] = {}
     for d in dirs:
         find_all_posts(d, post_managers)
-    ids_to_download: list[tuple[str, Path]] = []
+    ids_to_download: List[tuple[str, Path]] = []
     for post in post_managers.values():
         if not post.copies:
             if download_broken_symlinks:
@@ -196,8 +193,8 @@ def get_post_name(post: Post, i: int) -> str:
 
 class PostManager:
     id: int
-    copies: list[Path]
-    links: list[Path]
+    copies: List[Path]
+    links: List[Path]
 
     def __init__(self, id: int):
         self.id = id
@@ -213,13 +210,14 @@ class PostManager:
             copy.symlink_to(os.path.relpath(original, copy.parent))
 
 
-def find_all_posts(d: Path, posts: dict[int, PostManager]):
+def find_all_posts(d: Path, posts: Dict[int, PostManager]):
     for file_or_dir in d.iterdir():
         if file_or_dir.is_dir():
             find_all_posts(file_or_dir, posts)
         else:
             file = file_or_dir
-            if (m := VALID_FILE_NAME.match(file.name)) is None:
+            m = VALID_FILE_NAME.match(file.name)
+            if m is None:
                 continue
             post_id = int(m["post_id"])
             if post_id not in posts:
@@ -233,7 +231,7 @@ def find_all_posts(d: Path, posts: dict[int, PostManager]):
                 post.copies.append(file)
 
 
-def find_shortest_path(paths: list[Path]) -> Path:
+def find_shortest_path(paths: List[Path]) -> Path:
     return min(paths, key=lambda p: len(str(p.absolute())))
 
 
@@ -248,7 +246,7 @@ def sort_tag(tag: str) -> int:
         return code
 
 
-def normalize_tags(tags: list[str]) -> list[str]:
+def normalize_tags(tags: List[str]) -> List[str]:
     tags = [t.lower().strip() for t in tags]
     tags.sort(reverse=True, key=sort_tag)
     return tags

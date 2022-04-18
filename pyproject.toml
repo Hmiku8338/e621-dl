@@ -1,9 +1,12 @@
 [tool.poetry]
 name = "e621-dl"
-version = "2.0"
-description = ""
-authors = []
+version = "2.0.1"
+description = "A simple and fast e621 post/pool downloader"
+authors = ["HMiku8338 <hmiku8338@gmail.com>"]
 license = "MIT"
+keywords = ["furry", "yiff", "e621", "e621-api", "e621-downloader"]
+readme = "README.md"
+repository = "https://github.com/hmiku8338/e621-dl"
 
 [tool.poetry.dependencies]
 python = "^3.7"
@@ -20,6 +23,15 @@ isort = "^5.10.1"
 
 [tool.poetry.scripts]
 e6 = 'e621_dl:app'
+
+[tool.isort]
+py_version = 37
+profile = "black"
+src_paths = ["e621"]
+
+[tool.black]
+target-version = ['py37']
+line-length = 120
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
