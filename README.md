@@ -1,5 +1,5 @@
 # e621-dl
-**e621-dl** is a A simple and fast e621 post/pool downloader. It is based upon the [e621](https://github.com/PatriotRossii/e621-py) api wrapper both in implementation and interface.
+**e621-dl** is a a simple and fast e621 post/pool downloader. It is based upon the [e621](https://github.com/PatriotRossii/e621-py) api wrapper both in implementation and interface.
 
 ## Installation
 `pip install e621-dl`

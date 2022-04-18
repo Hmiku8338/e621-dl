@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "e621-dl"
-version = "2.0.2"
+version = "2.0.3"
 description = "A simple and fast e621 post/pool downloader"
 authors = ["HMiku8338 <hmiku8338@gmail.com>"]
 license = "MIT"
