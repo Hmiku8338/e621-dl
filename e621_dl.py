@@ -4,14 +4,16 @@ import os
 import os.path
 import re
 import shutil
+from enum import Enum
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 import requests
-import rich.progress
 import typer
 from e621.api import E621
-from e621.models import Post
+from e621.enums import PoolCategory
+from e621.models import Pool, Post
+from tqdm import tqdm
 
 CURRENT_DIR = Path(__file__).parent
 USERNAME_FILE = CURRENT_DIR / "username.txt"
@@ -19,12 +21,6 @@ API_KEY_FILE = CURRENT_DIR / "api_key.txt"
 VALID_FILE_NAME = re.compile(r"\d+ (?P<post_id>\d+)")
 api = E621(
     (USERNAME_FILE.read_text(), API_KEY_FILE.read_text()) if USERNAME_FILE.exists() and API_KEY_FILE.exists() else None,
-)
-progress_bar = rich.progress.Progress(
-    rich.progress.TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
-    rich.progress.BarColumn(bar_width=None),
-    "[progress.percentage]{task.percentage:>3.1f}%",
-    transient=True,
 )
 
 app = typer.Typer(add_completion=False)
@@ -46,8 +42,15 @@ dir_arg: Path = typer.Option(
 save_space_arg = typer.Option(False, "-s", "--save-space", help="Save space by turning duplicates into symlinks")
 
 
+class PoolOrder(str, Enum):
+    NAME = "name"
+    CREATED_AT = "created_at"
+    UPDATED_AT = "updated_at"
+    POST_COUNT = "post_count"
+
+
 @posts_app.command("search")
-def get_posts(
+def search_posts(
     tags: List[str] = typer.Argument(..., help="Tags to search for"),
     max_posts: int = typer.Option(
         10000,
@@ -56,18 +59,23 @@ def get_posts(
         help="The program will stop after downloading n posts",
         metavar="n",
     ),
-    download_path: Path = dir_arg,
+    download_dir: Path = dir_arg,
     save_space: bool = save_space_arg,
-) -> None:
+    _hardcoded_download_dir: Optional[Path] = typer.Option(None, hidden=True),
+) -> List[Post]:
     """Download posts that match the given set of tags"""
     formatted_tags = " ".join(normalize_tags(tags))
-    posts = api.posts.search(formatted_tags, limit=max_posts)
+    print("Searching for posts...")
+    posts = api.posts.search(formatted_tags, limit=max_posts, ignore_pagination=True)
     print(len(posts), "posts found")
-    directory = download_path / formatted_tags
-    directory.mkdir(exist_ok=True, parents=True)
+    if _hardcoded_download_dir is None:
+        directory = download_dir / formatted_tags
+        directory.mkdir(exist_ok=True, parents=True)
+    else:
+        directory = _hardcoded_download_dir
     if save_space:
         post_managers: Dict[int, PostManager] = {}
-        find_all_posts(download_path, post_managers)
+        find_all_posts(download_dir, post_managers)
 
         optimized_posts = 0
         for index, post in enumerate(posts, start=1):
@@ -80,31 +88,67 @@ def get_posts(
     mass_enumerated_download(posts, directory, api)
 
     if save_space:
-        clean([download_path.parent], True)
+        clean([download_dir.parent], True)
+    return posts
 
 
 @posts_app.command("get")
-def get_post(post_id: int, download_dir: Path = dir_arg) -> Post:
-    """Download a single post with a given id"""
-    post = api.posts.get(post_id)
-    download_path = download_dir / f"{post_id}.{post.file.ext}"
-    with requests.Session() as session:
-        session.auth = api.session.auth
-        session.headers.update(api.session.headers)
-        download_file(post.file.url, download_path, session)
-    return post
+def get_posts(post_ids: List[int], download_dir: Path = dir_arg, save_space: bool = save_space_arg) -> List[Post]:
+    """Download a posts with the given ids"""
+    return search_posts(
+        [f'id:{",".join(map(str, post_ids))}'], _hardcoded_download_dir=download_dir, save_space=save_space
+    )
+
+
+@pools_app.command("search")
+def search_pools(
+    name_matches: Optional[str] = typer.Option(None, "-n", "--name-matches"),
+    id: Optional[List[int]] = typer.Option(None, "-i", "--id"),
+    description_matches: Optional[str] = typer.Option(None, "-D", "--description-matches"),
+    creator_name: Optional[str] = typer.Option(None, "-N", "--creator-name"),
+    creator_id: Optional[int] = typer.Option(None, "-C", "--creator-id"),
+    is_active: Optional[bool] = typer.Option(None, "--is-active/--is-not-active"),
+    is_deleted: Optional[bool] = typer.Option(None, "--is-deleted/--is-not-deleted"),
+    category: Optional[PoolCategory] = typer.Option(None, "-c", "--category"),
+    order: Optional[PoolOrder] = typer.Option(None, "-o", "--order"),
+    max_pools: int = typer.Option(
+        10000,
+        "-m",
+        "--max_pools",
+        help="The program will stop after downloading n pools",
+        metavar="n",
+    ),
+    download_dir: Path = dir_arg,
+    save_space: bool = save_space_arg,
+) -> List[Pool]:
+    """Download pools that match the given query"""
+    pools = api.pools.search(
+        name_matches=name_matches,
+        id=id,
+        description_matches=description_matches,
+        creator_name=creator_name,
+        creator_id=creator_id,
+        is_active=is_active,
+        is_deleted=is_deleted,
+        category=category,
+        order=order,  # type: ignore
+        limit=max_pools,
+        ignore_pagination=True,
+    )
+    for pool in pools:
+        directory = download_dir / pool.name
+        directory.mkdir(parents=True, exist_ok=True)
+        print(len(pool.posts), "posts found in pool", pool.name)
+        mass_enumerated_download(reversed(pool.posts), directory, api)
+    if save_space:
+        clean([download_dir], True)
+    return pools
 
 
 @pools_app.command("get")
-def get_pool(pool_id: int, download_path: Path = dir_arg, save_space: bool = save_space_arg) -> None:
+def get_pools(pool_ids: List[int], download_dir: Path = dir_arg, save_space: bool = save_space_arg) -> List[Pool]:
     """Download all posts in a pool with a given id"""
-    pool = api.pools.get(pool_id)
-    directory = download_path / str(pool.name)
-    directory.mkdir(parents=True, exist_ok=True)
-    print(len(pool.posts), "posts found in pool", pool.name)
-    mass_enumerated_download(reversed(pool.posts), directory, api)
-    if save_space:
-        clean([download_path.parent], True)
+    return search_pools(id=pool_ids, download_dir=download_dir, save_space=save_space)
 
 
 @app.command()
@@ -166,16 +210,16 @@ def mass_download(
     api: E621,
     overwrite: bool = False,
 ) -> None:
-    with progress_bar, requests.Session() as session:
+    with requests.Session() as session:
         session.headers.update({"User-Agent": "e6tools"})
         session.auth = api.session.auth
-        total_size = sum(size for _, _, size in files) / BYTES_IN_MB
-        task_id = progress_bar.add_task("[bold blue]Downloading...", total=total_size, visible=True, filename="")
+        total_size = sum(size for _, _, size in files)
+        progress_bar = tqdm(total=total_size, unit="iB", unit_scale=True)
         for url, path, size in files:
-            progress_bar.update(task_id, filename=path.name)
+            progress_bar.set_description(f"Downloading {path.name}")
             if not path.exists() or overwrite:
                 download_file(url, path, timeout=30)
-            progress_bar.update(task_id, advance=size / BYTES_IN_MB)
+            progress_bar.update(size)
 
 
 def download_file(url: str, path: Path, session: Optional[requests.Session] = None, **kwargs) -> requests.Response:
@@ -192,14 +236,10 @@ def get_post_name(post: Post, i: int) -> str:
 
 
 class PostManager:
-    id: int
-    copies: List[Path]
-    links: List[Path]
-
     def __init__(self, id: int):
         self.id = id
-        self.copies = []
-        self.links = []
+        self.copies: List[Path] = []
+        self.links: List[Path] = []
 
     def replace_copies_with_symlinks(self):
         # We use shortest path as the original because it will be more likely to contain the original artist tag
