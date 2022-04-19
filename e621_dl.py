@@ -4,6 +4,7 @@ import os
 import os.path
 import re
 import shutil
+import sys
 from enum import Enum
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
@@ -53,7 +54,7 @@ class PoolOrder(str, Enum):
 def search_posts(
     tags: List[str] = typer.Argument(..., help="Tags to search for"),
     max_posts: int = typer.Option(
-        10000,
+        sys.maxsize,
         "-m",
         "--max_posts",
         help="The program will stop after downloading n posts",
@@ -112,7 +113,7 @@ def search_pools(
     category: Optional[PoolCategory] = typer.Option(None, "-c", "--category"),
     order: Optional[PoolOrder] = typer.Option(None, "-o", "--order"),
     max_pools: int = typer.Option(
-        10000,
+        sys.maxsize,
         "-m",
         "--max_pools",
         help="The program will stop after downloading n pools",
