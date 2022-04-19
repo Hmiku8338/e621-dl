@@ -35,8 +35,7 @@
 * To replace all post duplicates from the current directory (all of its subdirectories) with symlinks:  
 `e6 clean`
 
-For advanced reference, use `--help` option. For example, `e6 --help`, `e6 posts search --help`, etc.
-
 ## FAQ and Known Issues
 * If your tags include the minus (-) sign, a colon (:), or any other character bash/typer might consider special -- you must wrap your query in quotation marks. For example,  
 `e6 posts search "3d -canine order:score"`
+* For advanced reference, use `--help` option. For example, `e6 --help`, `e6 posts search --help`, etc.
