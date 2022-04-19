@@ -6,7 +6,7 @@ import re
 import shutil
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Sequence
 
 import requests
 import typer
@@ -79,9 +79,9 @@ def search_posts(
 
         optimized_posts = 0
         for index, post in enumerate(posts, start=1):
-            if post.id in post_managers and post_managers[post.id].copies:
+            if post.id in post_managers and post_managers[post.id].copies and post.file is not None:
                 optimized_posts += 1
-                dst = directory / get_post_name(post, index)
+                dst = directory / get_post_name(index, post.id, post.file.ext)
                 if not dst.is_file():
                     shutil.copyfile(post_managers[post.id].copies[0], dst)
         print(optimized_posts, "posts already downloaded")
@@ -139,7 +139,7 @@ def search_pools(
         directory = download_dir / pool.name
         directory.mkdir(parents=True, exist_ok=True)
         print(len(pool.posts), "posts found in pool", pool.name)
-        mass_enumerated_download(reversed(pool.posts), directory, api)
+        mass_enumerated_download(list(reversed(pool.posts)), directory, api)
     if save_space:
         clean([download_dir], True)
     return pools
@@ -175,7 +175,9 @@ def clean(
         post.replace_copies_with_symlinks()
     posts = api.posts.get([int(id) for id, _ in ids_to_download])
     zipped_posts = zip(sorted(ids_to_download, key=lambda p: p[0]), sorted(posts, key=lambda p: p.id))
-    posts_to_download = [(post.file.url, path, post.file.size) for ((_, path), post) in zipped_posts]
+    posts_to_download = [
+        (post.file.url, path, post.file.size) for ((_, path), post) in zipped_posts if post.file is not None
+    ]
     mass_download(posts_to_download, api, overwrite=True)
 
 
@@ -197,12 +199,17 @@ def logout() -> None:
 BYTES_IN_MB = 10**6
 
 
-def mass_enumerated_download(posts: Iterable[Post], directory: Path, api: E621) -> None:
+def mass_enumerated_download(posts: Sequence[Post], directory: Path, api: E621) -> None:
     """Download multuple files to the given directory."""
-    return mass_download(
-        [(p.file.url, directory / get_post_name(p, i), p.file.size) for i, p in enumerate(posts, start=1)],
-        api,
-    )
+    enumerated_posts = [
+        (p.file.url, directory / get_post_name(i, p.id, p.file.ext), p.file.size)
+        for i, p in enumerate(posts, start=1)
+        if p.file is not None
+    ]
+    diff_between_sizes = abs(len(posts) - len(enumerated_posts))
+    if diff_between_sizes != 0:
+        print(f"Skipping {diff_between_sizes} posts with no file available")
+    return mass_download(enumerated_posts, api)
 
 
 def mass_download(
@@ -231,8 +238,8 @@ def download_file(url: str, path: Path, session: Optional[requests.Session] = No
     return r
 
 
-def get_post_name(post: Post, i: int) -> str:
-    return f"{i} {post.id}.{post.file.ext}"
+def get_post_name(i: int, post_id: int, post_extension: str) -> str:
+    return f"{i} {post_id}.{post_extension}"
 
 
 class PostManager:
