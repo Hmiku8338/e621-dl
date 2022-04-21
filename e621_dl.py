@@ -76,7 +76,7 @@ def search_posts(
         directory = _hardcoded_download_dir
     if save_space:
         post_managers: Dict[int, PostManager] = {}
-        find_all_posts(download_dir, post_managers)
+        find_all_posts(directory.parent, post_managers)
 
         optimized_posts = 0
         for index, post in enumerate(posts, start=1):
@@ -89,7 +89,7 @@ def search_posts(
     mass_enumerated_download(posts, directory, api)
 
     if save_space:
-        clean([download_dir.parent], True)
+        clean([directory.parent], True)
     return posts
 
 
@@ -97,7 +97,10 @@ def search_posts(
 def get_posts(post_ids: List[int], download_dir: Path = dir_arg, save_space: bool = save_space_arg) -> List[Post]:
     """Download a posts with the given ids"""
     return search_posts(
-        [f'id:{",".join(map(str, post_ids))}'], _hardcoded_download_dir=download_dir, save_space=save_space
+        [f'id:{",".join(map(str, post_ids))}'],
+        max_posts=sys.maxsize,
+        _hardcoded_download_dir=download_dir,
+        save_space=save_space,
     )
 
 
@@ -149,7 +152,20 @@ def search_pools(
 @pools_app.command("get")
 def get_pools(pool_ids: List[int], download_dir: Path = dir_arg, save_space: bool = save_space_arg) -> List[Pool]:
     """Download all posts in a pool with a given id"""
-    return search_pools(id=pool_ids, download_dir=download_dir, save_space=save_space)
+    return search_pools(
+        id=pool_ids,
+        max_pools=sys.maxsize,
+        download_dir=download_dir,
+        save_space=save_space,
+        name_matches=None,
+        description_matches=None,
+        creator_name=None,
+        creator_id=None,
+        is_active=None,
+        is_deleted=None,
+        category=None,
+        order=None,
+    )
 
 
 @app.command()

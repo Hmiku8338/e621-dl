@@ -8,8 +8,8 @@
 ### Downloading Posts
 * To download posts with the ids 12345 and 67891:  
 `e6 posts get 12345 67891`  
-* To download all posts that match the canine but not 3d tags:  
-`e6 posts search canine 3d`  
+* To download all posts that match the canine but not the 3d tag:  
+`e6 posts search "canine -3d"`  
 * To download 500 posts that match the 3d tag:  
 `e6 posts search 3d -m 500`  
 * To download posts that match the 3d tag to directory e621_downloads:  
