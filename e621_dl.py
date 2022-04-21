@@ -17,8 +17,8 @@ from e621.models import Pool, Post
 from tqdm import tqdm
 
 CURRENT_DIR = Path(__file__).parent
-USERNAME_FILE = CURRENT_DIR / "username.txt"
-API_KEY_FILE = CURRENT_DIR / "api_key.txt"
+USERNAME_FILE = CURRENT_DIR / "e621-dl_username.txt"
+API_KEY_FILE = CURRENT_DIR / "e621-dl_api_key.txt"
 VALID_FILE_NAME = re.compile(r"\d+ (?P<post_id>\d+)")
 api = E621(
     (USERNAME_FILE.read_text(), API_KEY_FILE.read_text()) if USERNAME_FILE.exists() and API_KEY_FILE.exists() else None,
