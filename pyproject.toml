@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "e621-dl"
-version = "2.2.1"
+version = "2.2.2"
 description = "A simple and fast e621 post/pool downloader"
 authors = ["HMiku8338 <hmiku8338@gmail.com>"]
 license = "MIT"
@@ -12,7 +12,7 @@ repository = "https://github.com/hmiku8338/e621-dl"
 python = "^3.7"
 requests = "^2.27.1"
 typer = "^0.4.0"
-e621-temp = "^0.0.6"
+e621-temp = "^1.0.7"
 click = "<8.1.0"
 tqdm = "^4.64.0"
 
