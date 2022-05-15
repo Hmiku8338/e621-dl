@@ -19,7 +19,9 @@ from tqdm import tqdm
 CURRENT_DIR = Path(__file__).parent
 USERNAME_FILE = CURRENT_DIR / "e621-dl_username.txt"
 API_KEY_FILE = CURRENT_DIR / "e621-dl_api_key.txt"
+BYTES_IN_MB = 10**6
 VALID_FILE_NAME = re.compile(r"\d+ (?P<post_id>\d+)")
+INVALID_FILE_CHAR = re.compile(r'[<>:/\|?*"]+')
 api = E621(
     (USERNAME_FILE.read_text(), API_KEY_FILE.read_text()) if USERNAME_FILE.exists() and API_KEY_FILE.exists() else None,
 )
@@ -140,7 +142,7 @@ def search_pools(
         ignore_pagination=True,
     )
     for pool in pools:
-        directory = download_dir / re.sub(r'[<>:\"/\|?*]', '', pool.name)
+        directory = download_dir / normalize_file_name(pool.name, pool.id)
         directory.mkdir(parents=True, exist_ok=True)
         print(len(pool.posts), "posts found in pool", pool.name)
         mass_enumerated_download(list(reversed(pool.posts)), directory, api)
@@ -193,7 +195,9 @@ def clean(
     posts = api.posts.get([int(id) for id, _ in ids_to_download])
     zipped_posts = zip(sorted(ids_to_download, key=lambda p: p[0]), sorted(posts, key=lambda p: p.id))
     posts_to_download = [
-        (post.file.url, path, post.file.size) for ((_, path), post) in zipped_posts if post.file is not None
+        (post.file.url, path, post.file.size)
+        for ((_, path), post) in zipped_posts
+        if post.file is not None and post.file.url is not None
     ]
     mass_download(posts_to_download, api, overwrite=True)
 
@@ -213,15 +217,12 @@ def logout() -> None:
     API_KEY_FILE.unlink(), USERNAME_FILE.unlink()
 
 
-BYTES_IN_MB = 10**6
-
-
 def mass_enumerated_download(posts: Sequence[Post], directory: Path, api: E621) -> None:
     """Download multuple files to the given directory."""
     enumerated_posts = [
         (p.file.url, directory / get_post_name(i, p.id, p.file.ext), p.file.size)
         for i, p in enumerate(posts, start=1)
-        if p.file is not None
+        if p.file is not None and p.file.url is not None
     ]
     diff_between_sizes = abs(len(posts) - len(enumerated_posts))
     if diff_between_sizes != 0:
@@ -314,6 +315,19 @@ def normalize_tags(tags: List[str]) -> List[str]:
     tags = [t.lower().strip() for t in tags]
     tags.sort(reverse=True, key=sort_tag)
     return tags
+
+
+def normalize_file_name(name: str, id: int) -> str:
+    """Makes file name valid for both Windows and Unix systems
+
+    Args:
+        name: Original file name
+        id: In case the file name is completely invalid, we use ID in its place
+
+    Returns:
+        The normalized file name
+    """
+    return INVALID_FILE_CHAR.sub("", name).replace("\0", "") or f"e621_{id}"
 
 
 if __name__ == "__main__":
