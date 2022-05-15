@@ -140,7 +140,7 @@ def search_pools(
         ignore_pagination=True,
     )
     for pool in pools:
-        directory = download_dir / pool.name
+        directory = download_dir / re.sub(r'[<>:\"/\|?*]', '', pool.name)
         directory.mkdir(parents=True, exist_ok=True)
         print(len(pool.posts), "posts found in pool", pool.name)
         mass_enumerated_download(list(reversed(pool.posts)), directory, api)
