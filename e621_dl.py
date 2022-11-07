@@ -24,6 +24,7 @@ VALID_FILE_NAME = re.compile(r"\d+ (?P<post_id>\d+)")
 INVALID_FILE_CHAR = re.compile(r'[<>:/\|?*"]+')
 api = E621(
     (USERNAME_FILE.read_text(), API_KEY_FILE.read_text()) if USERNAME_FILE.exists() and API_KEY_FILE.exists() else None,
+    timeout=180,
 )
 
 app = typer.Typer(add_completion=False)
