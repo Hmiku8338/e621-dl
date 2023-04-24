@@ -73,7 +73,7 @@ def search_posts(
     posts = api.posts.search(formatted_tags, limit=max_posts, ignore_pagination=True)
     print(len(posts), "posts found")
     if _hardcoded_download_dir is None:
-        directory = download_dir / formatted_tags
+        directory = download_dir / normalize_directory_name(formatted_tags)
         directory.mkdir(exist_ok=True, parents=True)
     else:
         directory = _hardcoded_download_dir
@@ -329,6 +329,18 @@ def normalize_file_name(name: str, id: int) -> str:
         The normalized file name
     """
     return INVALID_FILE_CHAR.sub("", name).replace("\0", "") or f"e621_{id}"
+
+
+def normalize_directory_name(name: str) -> str:
+    """Makes directory name valid for both Windows and Unix systems
+
+    Args:
+        name: Original tags as a string
+
+    Returns:
+        The normalized directory name
+    """
+    return INVALID_FILE_CHAR.sub("-", name).replace("\0", "")
 
 
 if __name__ == "__main__":
